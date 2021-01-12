@@ -1,5 +1,6 @@
 ﻿using JWT;
 using JWT.Algorithms;
+using JWT.Exceptions;
 using JWT.Serializers;
 using Raccoon.Devkits.JwtAuthroization.Models;
 using System;
@@ -28,11 +29,18 @@ namespace Raccoon.Devkits.JwtAuthroization.Services
 
         public IDictionary<string,object> Decode(string token, string secret) =>
             _decoder.DecodeToObject(token, secret, true);
+
+       
+        /// <exception cref="ArgumentException">Throw if token without exp field.</exception>
+        /// <exception cref="TokenExpiredException"></exception>
         public string RefreshToken(string token,string secret,double timeExpand)
         {
             IDictionary<string, object> payload = Decode(token, secret);
             if (payload.ContainsKey("exp"))
             {
+                double exp = Convert.ToDouble(payload["exp"]);
+                if(exp< DateTimeOffset.Now.ToUnixTimeSeconds())
+                { throw new TokenExpiredException($"{token} is expired already!");}
                 payload["exp"] = DateTimeOffset.Now.ToUnixTimeSeconds() + timeExpand;
                 return Encode(payload, secret);
             }

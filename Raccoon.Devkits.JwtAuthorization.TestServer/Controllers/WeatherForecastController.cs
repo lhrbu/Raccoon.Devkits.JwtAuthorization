@@ -10,7 +10,8 @@ namespace Raccoon.Devkits.JwtAuthroization.TestServer.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [JwtPayload("test",( "key1", "key2" ),("Key2","Value2"))]
+    [CookieJwtPayloadRequirement("test","key1","value1","value2")]
+    //[CookieJwtPayloadRequirement("test", "key2", "value3", "value4")]
     public class WeatherForecastController : ControllerBase
     {
         private static readonly string[] Summaries = new[]

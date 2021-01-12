@@ -8,7 +8,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Raccoon.Devkits.JwtAuthorization;
 using Raccoon.Devkits.JwtAuthroization.Models;
+using Raccoon.Devkits.JwtAuthroization.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,6 +37,7 @@ namespace Raccoon.Devkits.JwtAuthroization.TestServer
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Raccoon.Devkits.JwtAuthroization.TestServer", Version = "v1" });
             });
+            services.AddJwtAuthorization();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -50,7 +53,7 @@ namespace Raccoon.Devkits.JwtAuthroization.TestServer
             app.UseRouting();
 
             app.UseAuthorization();
-            app.UseJwtAuthorization();
+            app.UseCookieJwtAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
