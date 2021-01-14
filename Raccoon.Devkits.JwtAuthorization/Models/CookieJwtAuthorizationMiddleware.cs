@@ -31,7 +31,7 @@ namespace Raccoon.Devkits.JwtAuthroization.Models
         { 
             IEnumerable<CookieJwtPayloadRequirementAttribute>? payloadAttributes = context.Features.Get<IEndpointFeature>()?
                 .Endpoint?.Metadata?.Where(item => item is CookieJwtPayloadRequirementAttribute).Select(item => (item as CookieJwtPayloadRequirementAttribute)!);
-            if(payloadAttributes?.Count()==0) 
+            if(payloadAttributes == null || payloadAttributes?.Count()==0) 
             { 
                 await _next(context); 
                 return;
