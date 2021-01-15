@@ -28,7 +28,14 @@ namespace Raccoon.Devkits.JwtAuthroization.Models
         }
        
         public async Task InvokeAsync(HttpContext context,IConfiguration configuration)
-        { 
+        {
+            bool? enableCookieJwt = configuration.GetValue<bool?>("EnableCookieJwt");
+            if(enableCookieJwt.HasValue && (enableCookieJwt.Value is false))
+            {
+                await _next(context);
+                return;
+            }
+
             IEnumerable<CookieJwtPayloadRequirementAttribute>? payloadAttributes = context.Features.Get<IEndpointFeature>()?
                 .Endpoint?.Metadata?.Where(item => item is CookieJwtPayloadRequirementAttribute).Select(item => (item as CookieJwtPayloadRequirementAttribute)!);
             if(payloadAttributes == null || payloadAttributes?.Count()==0) 
