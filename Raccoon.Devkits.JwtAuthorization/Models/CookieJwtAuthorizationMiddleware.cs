@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Raccoon.Devkits.JwtAuthorization.Models;
 using Raccoon.Devkits.JwtAuthroization.Services;
 using System;
 using System.Collections.Generic;
@@ -15,59 +17,72 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace Raccoon.Devkits.JwtAuthroization.Models
 {
     public class CookieJwtAuthorizationMiddleware
     {
         private readonly RequestDelegate _next;
+        
         public CookieJwtAuthorizationMiddleware(
             RequestDelegate next)
         { 
             _next = next;
         }
-       
-        public async Task InvokeAsync(HttpContext context,IConfiguration configuration)
+        
+        private IEnumerable<AuthorizationRule> GetAuthorizationRulesFromController(HttpContext context)
         {
-            bool? enableCookieJwt = configuration.GetValue<bool?>("EnableCookieJwt");
-            if(enableCookieJwt.HasValue && (enableCookieJwt.Value is false))
+            IEnumerable<CookieJwtPayloadRuleAttribute>? payloadAttributes = context.Features.Get<IEndpointFeature>()?
+                .Endpoint?.Metadata?.Where(item => item is CookieJwtPayloadRuleAttribute).Select(item => (item as CookieJwtPayloadRuleAttribute)!);
+            if(payloadAttributes is null) { return Enumerable.Empty<AuthorizationRule>();}
+            return payloadAttributes.Select(item=>item.AuthorizationRule with{PathPattern = context.Request.Path});
+        }
+
+        private bool WildCardCompare(string value,string pattern)
+        {
+            string regexPattern = "^" + Regex.Escape(pattern).Replace("\\?", ".").Replace("\\*", ".*") + "$";
+            return Regex.IsMatch(value,regexPattern);
+        }
+        private bool Authorize(HttpContext context,AuthorizationRule rule)
+        {
+            JwtEncodeService jwtEncodeService = (context.RequestServices.GetService(typeof(JwtEncodeService)) as JwtEncodeService)!;
+            KeyValuePair<string, string> cookie = context.Request.Cookies
+                   .FirstOrDefault(item => item.Key == rule.CookieName);
+            IDictionary<string, object> cookiePayload = jwtEncodeService.Decode(cookie.Value, "secret");
+            return cookiePayload.ContainsKey(rule.RequiredHeader) && rule.AllowedRange.Contains(cookiePayload[rule.RequiredHeader]);
+        }
+        public async Task InvokeAsync(HttpContext context,IOptionsMonitor<CookieJwtOptions> options)
+        {
+            if(!options.CurrentValue.Enable.HasValue || !options.CurrentValue.Enable.Value)
             {
                 await _next(context);
                 return;
             }
 
-            IEnumerable<CookieJwtPayloadRequirementAttribute>? payloadAttributes = context.Features.Get<IEndpointFeature>()?
-                .Endpoint?.Metadata?.Where(item => item is CookieJwtPayloadRequirementAttribute).Select(item => (item as CookieJwtPayloadRequirementAttribute)!);
-            if(payloadAttributes == null || payloadAttributes?.Count()==0) 
-            { 
-                await _next(context); 
+            try{
+                IEnumerable<AuthorizationRule> authorizationRulesFromConfig = options.CurrentValue.Rules?
+                    .Where(item=>WildCardCompare(context.Request.Path,item.PathPattern))??
+                    Enumerable.Empty<AuthorizationRule>();
+                IEnumerable<AuthorizationRule> authorizationRulesFromController = GetAuthorizationRulesFromController(context);
+            
+                bool authorizedFlag = true;
+                foreach (AuthorizationRule rule in authorizationRulesFromConfig)
+                {
+                    authorizedFlag = Authorize(context, rule);
+                    if (!authorizedFlag) { break; }
+                }
+                foreach (AuthorizationRule rule in authorizationRulesFromController)
+                {
+                    authorizedFlag = Authorize(context, rule);
+                    if (!authorizedFlag) { break; }
+                }
+
+                if (authorizedFlag) { await _next(context); }
+            }catch{
+                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
                 return;
             }
-
-            string secret = configuration["JwtSecret"];
-            JwtEncodeService jwtEncodeService = (context.RequestServices.GetService(typeof(JwtEncodeService)) as JwtEncodeService)!;
-            foreach (var requirementAttribute in payloadAttributes!)
-            {
-                string key = requirementAttribute.Key;
-                object[] requirments = requirementAttribute.Values;
-                KeyValuePair<string, string> cookie = context.Request.Cookies
-                   .FirstOrDefault(item => item.Key == requirementAttribute.CookieName);
-
-                try
-                {
-                    IDictionary<string, object> cookiePayload = jwtEncodeService.Decode(cookie.Value, secret);
-                    if (!cookiePayload.ContainsKey(key) || !requirments.Contains(cookiePayload[key]))
-                    {
-                        context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                        return;
-                    }
-                }
-                catch { 
-                    context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                    return;
-                }
-            }
-            await _next(context);
             
         }
     }

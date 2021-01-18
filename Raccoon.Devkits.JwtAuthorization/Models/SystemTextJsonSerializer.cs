@@ -15,7 +15,7 @@ namespace Raccoon.Devkits.JwtAuthroization.Models
 
         public T Deserialize<T>(string json)
         {
-            T data = System.Text.Json.JsonSerializer.Deserialize<T>(json);
+            T? data = System.Text.Json.JsonSerializer.Deserialize<T>(json);
 
             if (data is Dictionary<string, object> odata)
             {

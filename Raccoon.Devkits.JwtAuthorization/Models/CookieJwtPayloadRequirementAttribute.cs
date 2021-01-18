@@ -3,20 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Raccoon.Devkits.JwtAuthorization.Models;
 
 namespace Raccoon.Devkits.JwtAuthroization.Models
 {
     [AttributeUsage(AttributeTargets.All,AllowMultiple =true)]
-    public class CookieJwtPayloadRequirementAttribute:Attribute
+    public class CookieJwtPayloadRuleAttribute:Attribute
     {
-        public string Key { get; }
-        public object [] Values { get; }
-        public string CookieName { get; }
-        public CookieJwtPayloadRequirementAttribute(string cookieName,string key, params object[] values)
+        public AuthorizationRule AuthorizationRule {get;}
+        public CookieJwtPayloadRuleAttribute(string cookieName,string requiredHeader, params object[] allowedRange)
         {
-            CookieName = cookieName;
-            Key = key;
-            Values = values;
+           AuthorizationRule = new()
+           {
+               CookieName = cookieName,
+               RequiredHeader = requiredHeader,
+               AllowedRange = allowedRange
+           };
         }
     }
 }
