@@ -18,6 +18,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using Castle.Core.Logging;
+using Serilog;
 
 namespace Raccoon.Devkits.JwtAuthroization.Models
 {
@@ -27,28 +29,34 @@ namespace Raccoon.Devkits.JwtAuthroization.Models
         
         public CookieJwtAuthorizationMiddleware(
             RequestDelegate next)
-        { 
-            _next = next;
-        }
+        { _next = next;}
         
         private IEnumerable<AuthorizationRule> GetAuthorizationRulesFromController(HttpContext context)
         {
             IEnumerable<CookieJwtPayloadRuleAttribute>? payloadAttributes = context.Features.Get<IEndpointFeature>()?
-                .Endpoint?.Metadata?.Where(item => item is CookieJwtPayloadRuleAttribute).Select(item => (item as CookieJwtPayloadRuleAttribute)!);
-            if(payloadAttributes is null) { return Enumerable.Empty<AuthorizationRule>();}
+                .Endpoint?.Metadata?.Where(item => item is CookieJwtPayloadRuleAttribute)
+                .Select(item => (item as CookieJwtPayloadRuleAttribute)!);
+            if((payloadAttributes is null)||payloadAttributes.Count()==0) 
+            { return Enumerable.Empty<AuthorizationRule>();}
             return payloadAttributes.Select(item=>item.AuthorizationRule with{PathPattern = context.Request.Path});
         }
 
-        private bool WildCardCompare(string value,string pattern)
-        {
-            string regexPattern = "^" + Regex.Escape(pattern).Replace("\\?", ".").Replace("\\*", ".*") + "$";
-            return Regex.IsMatch(value,regexPattern);
-        }
+        //private bool WildCardCompare(string value,string pattern)
+        //{
+        //    string regexPattern = "^" + Regex.Escape(pattern).Replace("\\?", ".").Replace("\\*", ".*") + "$";
+        //    return Regex.IsMatch(value,regexPattern);
+        //}
+
+        private AuthorizationRule? SearchSpecificRuleInController(AuthorizationRule ruleInConfig,IEnumerable<AuthorizationRule> rulesInController)=>
+            rulesInController.FirstOrDefault(item => new PathString(item.PathPattern)
+                .StartsWithSegments(item.PathPattern != "/" ? new PathString(item.PathPattern) : new PathString(string.Empty)));
+        
         private bool Authorize(HttpContext context,AuthorizationRule rule)
         {
             JwtEncodeService jwtEncodeService = (context.RequestServices.GetService(typeof(JwtEncodeService)) as JwtEncodeService)!;
             KeyValuePair<string, string> cookie = context.Request.Cookies
                    .FirstOrDefault(item => item.Key == rule.CookieName);
+            if (cookie.Equals(default(KeyValuePair<string, string>))) { return false; }
             IDictionary<string, object> cookiePayload = jwtEncodeService.Decode(cookie.Value, "secret");
             return cookiePayload.ContainsKey(rule.RequiredHeader) && rule.AllowedRange.Contains(cookiePayload[rule.RequiredHeader]);
         }
@@ -61,25 +69,46 @@ namespace Raccoon.Devkits.JwtAuthroization.Models
             }
 
             try{
+                
+                PathString currentPath = context.Request.Path;
                 IEnumerable<AuthorizationRule> authorizationRulesFromConfig = options.CurrentValue.Rules?
-                    .Where(item=>WildCardCompare(context.Request.Path,item.PathPattern))??
-                    Enumerable.Empty<AuthorizationRule>();
+                    .Where(item => currentPath.StartsWithSegments(
+                        item.PathPattern!="/"?new PathString(item.PathPattern):new PathString(string.Empty)))??
+                        Enumerable.Empty<AuthorizationRule>();
+
                 IEnumerable<AuthorizationRule> authorizationRulesFromController = GetAuthorizationRulesFromController(context);
-            
+
                 bool authorizedFlag = true;
-                foreach (AuthorizationRule rule in authorizationRulesFromConfig)
+                foreach (AuthorizationRule ruleFromConfig in authorizationRulesFromConfig)
                 {
-                    authorizedFlag = Authorize(context, rule);
-                    if (!authorizedFlag) { break; }
+                    authorizedFlag = Authorize(context, ruleFromConfig);
+                    if (!authorizedFlag) 
+                    {
+                        AuthorizationRule? ruleFromController = SearchSpecificRuleInController(
+                            ruleFromConfig, 
+                            authorizationRulesFromController);
+                        if (ruleFromController is not null) { authorizedFlag = Authorize(context,ruleFromController); }
+                        if (!authorizedFlag)
+                        {
+                            context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                            return;
+                        }
+                    }
                 }
+                
                 foreach (AuthorizationRule rule in authorizationRulesFromController)
                 {
                     authorizedFlag = Authorize(context, rule);
-                    if (!authorizedFlag) { break; }
+                    if (!authorizedFlag) 
+                    {
+                        context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                        return;
+                    }
                 }
 
                 if (authorizedFlag) { await _next(context); }
-            }catch{
+            }catch(Exception exception){
+                Log.Logger.Error("{exception}", exception);
                 context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
                 return;
             }

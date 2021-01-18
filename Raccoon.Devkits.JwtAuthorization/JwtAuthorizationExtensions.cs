@@ -18,7 +18,6 @@ namespace Raccoon.Devkits.JwtAuthorization
         public static IServiceCollection AddJwtAuthorization(this IServiceCollection services,IConfiguration configuration)
         {
             services.TryAddTransient<JwtEncodeService>();
-            services.TryAddTransient<CookieJwtEncoder>();
             services.Configure<CookieJwtOptions>(configuration.GetSection(nameof(CookieJwtOptions)));
             return services;
         }
