@@ -1,11 +1,13 @@
 ﻿using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Raccoon.Devkits.JwtAuthroization.Services;
 using Raccoon.Devkits.JwtAuthroization.TestServer;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
@@ -21,19 +23,87 @@ namespace Raccoon.Devkits.JwtAuthroization.UnitTest
         {
             _server =new(WebHost.CreateDefaultBuilder().UseStartup<Startup>());
         }
+
+        private void WriteCookie(HttpRequestMessage httpRequest,IDictionary<string,object> payload)
+        {
+            JwtEncodeService jwtEncodeService = _server.Services.GetRequiredService<JwtEncodeService>();
+            IConfiguration configuration = _server.Services.GetRequiredService<IConfiguration>();
+            string encodedPayload = jwtEncodeService.Encode(payload, configuration["JwtSecret"]);
+            httpRequest.Headers.Add("Cookie", $"testcookie={encodedPayload}");
+        }
         [Fact]
-        public async Task CookieJwtPayloadRuleAttributeTest()
+        public async Task TestConfigAsync()
         {
             using HttpClient client = _server.CreateClient();
-            JwtEncodeService jwtEncodeService = _server.Services.GetRequiredService<JwtEncodeService>();
             HttpRequestMessage httpRequest = new(HttpMethod.Get, "/WeatherForecast");
             IDictionary<string, object> payload = new Dictionary<string, object>
             {
-                {"rh1","value1" }
+                {"testconfig","value8" }
             };
-            httpRequest.Headers.Add("Cookie", $"testcookie={jwtEncodeService.Encode(payload,"secret")}");
+            WriteCookie(httpRequest, payload);
             var res = await client.SendAsync(httpRequest);
-            var values = res.Content.ReadFromJsonAsync<WeatherForecast[]>();
+            Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+            //var values = res.Content.ReadFromJsonAsync<WeatherForecast[]>();
+        }
+
+        [Fact]
+        public async Task TestMethodAsync()
+        {
+            using HttpClient client = _server.CreateClient();
+            HttpRequestMessage httpRequest = new(HttpMethod.Get, "/WeatherForecast/Method");
+            IDictionary<string, object> payload = new Dictionary<string, object>
+            {
+                {"testmethod","value1" }
+            };
+            WriteCookie(httpRequest, payload);
+            var res = await client.SendAsync(httpRequest);
+            Assert.NotEmpty(await res.Content.ReadFromJsonAsync<IEnumerable<WeatherForecast>>());
+        }
+
+        [Fact]
+        public async Task TestControllerAsync()
+        {
+            using HttpClient client = _server.CreateClient();
+            HttpRequestMessage httpRequest = new(HttpMethod.Get, "/WeatherForcastAuthorization");
+            IDictionary<string, object> payload = new Dictionary<string, object>
+            {
+                {"testcontroller","value3" }
+            };
+            WriteCookie(httpRequest, payload);
+            var res = await client.SendAsync(httpRequest);
+            Assert.NotEqual(HttpStatusCode.Unauthorized, res.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestWithoutCookieAsync()
+        {
+            using HttpClient client = _server.CreateClient();
+            HttpRequestMessage httpRequest = new(HttpMethod.Get, "/WeatherForecast");
+            var res = await client.SendAsync(httpRequest);
+            Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestPathNotFount()
+        {
+            using HttpClient client = _server.CreateClient();
+            HttpRequestMessage httpRequest = new(HttpMethod.Get, "/WeatherForcastAuthorization/Hahaha");
+            IDictionary<string, object> payload = new Dictionary<string, object>
+            {
+                {"testcontroller","value3" }
+            };
+            WriteCookie(httpRequest, payload);
+            var res = await client.SendAsync(httpRequest);
+            Assert.NotEqual(HttpStatusCode.Unauthorized, res.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestTrivialAsync()
+        {
+            using HttpClient client = _server.CreateClient();
+            HttpRequestMessage httpRequest = new(HttpMethod.Get, "/Trivial");
+            var res = await client.SendAsync(httpRequest);
+            Assert.Equal("Hello World", await res.Content.ReadAsStringAsync());
         }
     }
 }

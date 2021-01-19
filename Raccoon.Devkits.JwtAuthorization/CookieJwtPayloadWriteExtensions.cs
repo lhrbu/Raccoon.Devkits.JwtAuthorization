@@ -17,7 +17,6 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Castle.Components.DictionaryAdapter;
 
 namespace Raccoon.Devkits.JwtAuthorization
 {

@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Raccoon.Devkits.JwtAuthroization.Models;
 using System;
 using System.Collections.Generic;
@@ -9,22 +8,15 @@ using System.Threading.Tasks;
 
 namespace Raccoon.Devkits.JwtAuthroization.TestServer.Controllers
 {
-    [ApiController]
     [Route("[controller]")]
-    //[CookieJwtPayloadRule("testcookie", "rh2", "value3", "value4")]
-    public class WeatherForecastController : ControllerBase
+    [ApiController]
+    [CookieJwtPayloadRule("testcookie", "testcontroller", "value3", "value4")]
+    public class WeatherForcastAuthorizationController : ControllerBase
     {
         private static readonly string[] Summaries = new[]
         {
             "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
         };
-
-        private readonly ILogger<WeatherForecastController> _logger;
-
-        public WeatherForecastController(ILogger<WeatherForecastController> logger)
-        {
-            _logger = logger;
-        }
 
         [HttpGet]
         public IEnumerable<WeatherForecast> Get()
@@ -38,9 +30,5 @@ namespace Raccoon.Devkits.JwtAuthroization.TestServer.Controllers
             })
             .ToArray();
         }
-
-        [HttpGet("Method")]
-        [CookieJwtPayloadRule("testcookie", "testmethod", "value1", "value2")]
-        public IEnumerable<WeatherForecast> GetMethod() => Get();
     }
 }
