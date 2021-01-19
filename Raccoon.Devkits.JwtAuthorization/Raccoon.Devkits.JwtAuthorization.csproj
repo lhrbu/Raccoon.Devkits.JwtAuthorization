@@ -5,11 +5,12 @@
 	 <Nullable>enable</Nullable>
 	 <Version>2.0.0</Version>
 	 <OutputType>Library</OutputType>
+	  <IsPackable>true</IsPackable>
   </PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="JWT" Version="7.3.1" />
-		<PackageReference Include="Serilog" Version="2.10.1-dev-01265" />
+		<PackageReference Include="Serilog" Version="2.10.0" />
 	</ItemGroup>
 
 </Project>
