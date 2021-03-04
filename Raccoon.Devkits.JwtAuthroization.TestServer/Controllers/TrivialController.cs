@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mime;
 using System.Threading.Tasks;
+using Raccoon.Devkits.JwtAuthorization;
 
 namespace Raccoon.Devkits.JwtAuthroization.TestServer.Controllers
 {
@@ -15,5 +16,12 @@ namespace Raccoon.Devkits.JwtAuthroization.TestServer.Controllers
     {
         [Consumes(MediaTypeNames.Text.Plain)]
         public string Get() => "Hello World";
+
+        public void TestWriteTypePayload()
+        {
+
+        }
     }
+
+    public record TestPayload(string Name,int Value);
 }

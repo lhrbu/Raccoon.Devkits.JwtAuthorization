@@ -22,16 +22,16 @@ namespace Raccoon.Devkits.JwtAuthorization
 {
     public static class CookieJwtPayloadWriteExtensions
     {
-        public static void Write<TPayload>(this HttpContext context,string cookieName,TPayload payload)
+        public static void WriteJwtPayload<TPayload>(this HttpContext context,string cookieName,TPayload payload)
         {
             IConfiguration configuration = context.RequestServices.GetRequiredService<IConfiguration>();
             JwtEncodeService jwtEncodeService = context.RequestServices.GetRequiredService<JwtEncodeService>();
             string payloadString = JsonSerializer.Serialize(payload);
-            IDictionary<string, object> payloadDict = (JsonSerializer.Deserialize<IDictionary<string, object>>(payloadString))!;
+            IDictionary<string, object?> payloadDict = (JsonSerializer.Deserialize<IDictionary<string, object?>>(payloadString))!;
             context.Response.Cookies.Append(cookieName, jwtEncodeService.Encode(payloadDict, configuration["JwtSecret"]));
         }
 
-        public static void Write(this HttpContext context, string cookieName,IDictionary<string,object> payload)
+        public static void WriteJwtPayload(this HttpContext context, string cookieName,IDictionary<string,object?> payload)
         {
             IConfiguration configuration = context.RequestServices.GetRequiredService<IConfiguration>();
             JwtEncodeService jwtEncodeService = context.RequestServices.GetRequiredService<JwtEncodeService>();

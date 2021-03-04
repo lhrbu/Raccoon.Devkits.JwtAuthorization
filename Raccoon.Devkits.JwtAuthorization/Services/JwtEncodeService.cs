@@ -25,9 +25,9 @@ namespace Raccoon.Devkits.JwtAuthroization.Services
             _decoder = new JwtDecoder(jsonSerializer, validator, urlEncoder, algorithm);
         }
 
-        public string Encode(IDictionary<string, object> payload, string secret) =>_encoder.Encode(payload,secret);
+        public string Encode(IDictionary<string, object?> payload, string secret) =>_encoder.Encode(payload,secret);
 
-        public IDictionary<string,object> Decode(string token, string secret) =>
+        public IDictionary<string,object?> Decode(string token, string secret) =>
             _decoder.DecodeToObject(token, secret, true);
 
        
@@ -35,7 +35,7 @@ namespace Raccoon.Devkits.JwtAuthroization.Services
         /// <exception cref="TokenExpiredException"></exception>
         public string RefreshToken(string token,string secret,double timeExpand)
         {
-            IDictionary<string, object> payload = Decode(token, secret);
+            IDictionary<string, object?> payload = Decode(token, secret);
             if (payload.ContainsKey("exp"))
             {
                 double exp = Convert.ToDouble(payload["exp"]);
